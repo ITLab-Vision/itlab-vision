@@ -12,9 +12,7 @@ int numberOfChoosenPoints = 0;
 float sigmaX = 0.0f;
 float sigmaY = 0.0f;
 const char *helper = "./matte_sample <img> <sigma1> <sigma2>\n\
-\t<img>-file name contained the processed image\n\
-\t<sigmaX>-float param - power of the blur in X derection\n\
-\t<sigmaY>-float param - power of the blur in Y derection";
+\t<img>-file name contained the processed image";
 
 
 void CallBackFunc(int event, int x, int y, int flags, void* userdata)
@@ -42,8 +40,10 @@ void CallBackFunc(int event, int x, int y, int flags, void* userdata)
                 circle(srcCpy, secondPoint, 3, CV_RGB(255, 0, 0), 3);
                 imshow(ORIGINAL_IMAGE, srcCpy);
                 numberOfChoosenPoints++;
-                Mat dst;
-                matte(src, dst, firstPoint, secondPoint, sigmaX, sigmaY);
+                Mat dst = src;
+                /*firstPoint = Point(500, 500);
+                secondPoint = Point(1000, 1000);*/
+                matte(src, dst, firstPoint, secondPoint);
                 namedWindow(MATTE_IMAGE, CV_WINDOW_AUTOSIZE);
                 imshow(MATTE_IMAGE, dst);
                 break;
@@ -73,12 +73,10 @@ int main(int argc, char** argv)
 
 int processArguments(int argc, char **argv, Mat &src)
 {
-    if(argc < 4)
+    if(argc < 2)
     {
         return 1;
     }
     src = imread(argv[1], CV_LOAD_IMAGE_COLOR);
-    sigmaX=atof(argv[2]);
-    sigmaY=atof(argv[3]);
     return 0;
 }

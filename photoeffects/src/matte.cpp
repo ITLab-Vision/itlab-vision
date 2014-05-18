@@ -1,12 +1,12 @@
 #include "photoeffects.hpp"
-#include <vector>
+#include <iostream>
 
 using namespace cv;
 using namespace std;
 
 namespace
 {
-    Point topleftFind(Point firstPoint, Point secondPoint, int &xsize, int &ysize)
+    Point topleftFind(Point firstPoint, Point secondPoint, float &xsize, float &ysize)
     {
         Point topleft(0, 0);
         if(xsize < 0)
@@ -31,31 +31,45 @@ namespace
     }
 }
 
-int matte(InputArray src, OutputArray dst, Point firstPoint, Point secondPoint, float sigmaX,
-            float sigmaY, Size ksize)
+int matte(InputArray src, OutputArray dst, Point firstPoint, Point secondPoint)
 {
-    CV_Assert((src.type() == CV_8UC3) || (src.type() == CV_32FC3));
-    CV_Assert((sigmaX > 0.0f) || (sigmaY > 0.0f));
+    CV_Assert(src.type() == CV_8UC3);
     Mat srcImg = src.getMat();
     CV_Assert(!(srcImg.empty()));
-    if(srcImg.type() != CV_32FC3)
-    {
-        srcImg.convertTo(srcImg, CV_32FC3, 1.0f/255.0f);
-    }
-    int xsize = firstPoint.x - secondPoint.x;
-    int ysize = firstPoint.y - secondPoint.y;
+    float xsize = firstPoint.x - secondPoint.x;
+    float ysize = firstPoint.y - secondPoint.y;
     Point topLeft = topleftFind(firstPoint, secondPoint, xsize, ysize);
-    const Scalar black = Scalar(0.0f,0.0f,0.0f);
-    const Scalar white = Scalar(1.0f,1.0f,1.0f);
-    Mat mask(srcImg.rows, srcImg.cols, CV_32FC1, black);
-    ellipse(mask, Point((topLeft.x+xsize/2),(topLeft.y-ysize/2)),
-            Size(xsize/2,ysize/2), 0, 0, 360, white, -1);
-    GaussianBlur(mask, mask, ksize, sigmaX, sigmaY);
-    vector<Mat> ch_img;
-    split(srcImg,ch_img);
-    ch_img[0]=ch_img[0].mul(mask)+1.0f-mask;
-    ch_img[1]=ch_img[1].mul(mask)+1.0f-mask;
-    ch_img[2]=ch_img[2].mul(mask)+1.0f-mask;
-    merge(ch_img,dst);
+    float aSquare = xsize*xsize/4.0f;
+    float bSquare = ysize*ysize/4.0f;
+    float xellipseCenter = topLeft.x + xsize/2.0f;
+    float yellipseCenter = topLeft.y - ysize/2.0f;
+    float aSQ = srcImg.cols*srcImg.cols/4.0f;
+    float bSQ = srcImg.rows*srcImg.rows/4.0f;
+    float coef = 0;
+    const Vec3b whiteIntensity(255, 255, 255);
+    Vec3b currentIntensity;
+    for (int i = 0; i < srcImg.rows; i++)
+    {
+        float ijCenterX= i - yellipseCenter;
+        float ijCenterXSquare = ijCenterX*ijCenterX;
+        for(int j = 0; j < srcImg.cols; j++)
+        {
+            currentIntensity = srcImg.at<Vec3b>(i,j);
+            float ijCenterY = j - xellipseCenter;
+            float ijCenterYSquare = ijCenterY*ijCenterY;
+            float destin = ijCenterXSquare/bSquare + ijCenterYSquare/aSquare;
+            if(destin > 1.0f)
+            {
+                float denominator =(ijCenterXSquare/bSQ + ijCenterYSquare/aSQ)*destin;
+                float alpha= 1.0f/denominator;
+                if(alpha > 1.0f)
+                {
+                    alpha = 1.0f;
+                }
+                coef = 1.0f - alpha;
+                dst.getMat().at<Vec3b>(i,j) = alpha*currentIntensity + coef*whiteIntensity;
+            }
+        }
+    }
     return 0;
 }
